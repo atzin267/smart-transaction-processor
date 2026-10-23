@@ -4,7 +4,7 @@
 
 ## Dirección Arquitectónica y Criterio de Negocio (Mi Rol)
 
-El diseño conceptual y las reglas de negocio fueron definidos íntegramente por mí antes y durante el desarrollo: la matriz de transiciones de estado, la idempotencia por `eventId`, el criterio lógico para clasificar eventos `STALE` y la elección de Jakarta Bean Validation. 
+Las reglas de negocio las definí yo, apoyándome en la IA para discutir opciones antes de elegir: la matriz de transiciones de estado, la idempotencia por `eventId`, el criterio lógico para clasificar eventos `STALE` y la elección de Jakarta Bean Validation. 
 
 La implementación se realizó de forma colaborativa e iterativa, la lógica se discutió, se prototipó, se auditó línea por línea y se corrigió activamente. **Cada decisión de negocio, cada detección de bugs y cada aceptación final dependieron estrictamente de mi revisión crítica.**
 
@@ -21,20 +21,19 @@ El desarrollo se ejecutó y verificó de forma atómica en el siguiente orden se
 * `Agregar endpoints POST /events y GET /transactions/{id}`
 * `Agregar pruebas unitarias de TransactionService`
 * `Agregar pruebas de integración de la API con MockMvc`
-* `Completar README.md, DECISIONS.md y AI_USAGE.md`
 * `Corregir orden STALE/transición y códigos HTTP de rutas inválidas`
-* `Actualizar documentación con las correcciones de STALE y HTTP`
+* `Completar README.md, DECISIONS.md y AI_USAGE.md`
 
 ---
 
 ## 2. Puntos Clave de Control y Auditoría Técnica
 
-Mi intervención activa como ingeniero se reflejó en momentos críticos donde detecté y corregí fallas que la herramienta no resolvió por sí sola:
+Momentos donde mi revisión fue decisiva:
 
 * **Auditoría de estado (`git log`):** Al iniciar la revisión, detecté que el código asumido no existía y que solo estaba el esqueleto del commit inicial, verificándolo de forma independiente antes de avanzar.
 * **Resolución de vacíos de negocio:** Ante la falta de especificación para el primer evento de una transacción nueva, determiné por criterio propio que el primer estado debe ser estrictamente `CREATED` (rechazando cualquier otro con `409`), implementando pruebas específicas.
-* **Detección y corrección de un bug lógico crítico:** Durante la revisión, detecté que un evento con timestamp viejo pero con una transición inválida contra el estado actual respondía `409` en lugar de `STALE`. Corregí el orden en `process()` para evaluar el timestamp antes que la transición y añadí la prueba `eventoViejoConTransicionYaSuperadaEsStaleNoConflicto`.
-* **Corrección de manejo de errores HTTP (500 vs 409/404):** Detecté que rutas inexistentes o métodos no soportados caían en el `@ExceptionHandler` genérico arrojando un error `500`. Ajusté el diseño para que las excepciones nativas de Spring conserven sus códigos reales (404/405/415), respaldado con la prueba `rutaInexistente_devuelve404_yMetodoNoPermitido_devuelve405`.
+* **Corrección de un bug lógico:** La revisión del prompt 2 señaló que un evento con timestamp viejo pero con una transición inválida contra el estado actual respondía `409` en lugar de `STALE`. Lo reproduje con un caso fuera de orden (CREATED 10:00 → COMPLETED 10:05 → llega tarde PROCESSING 10:02), corregí el orden en `process()` para evaluar el timestamp antes que la transición y añadí la prueba `eventoViejoConTransicionYaSuperadaEsStaleNoConflicto`.
+* **Corrección de manejo de errores HTTP (500 vs 404/405):** La misma revisión señaló que rutas inexistentes o métodos no soportados caían en el `@ExceptionHandler` genérico arrojando un error `500`. Lo confirmé y ajusté el handler para que las excepciones nativas de Spring conserven sus códigos reales (404/405/415), respaldado con la prueba `rutaInexistente_devuelve404_yMetodoNoPermitido_devuelve405`.
 * **Claridad conceptual (`STALE`):** Validé línea por línea la condición `event.timestamp().isBefore(current.lastUpdated())` usando los casos `EVT-1001` a `EVT-1003` para separar el orden de llegada HTTP del orden lógico por `timestamp`.
 
 ---
@@ -50,7 +49,7 @@ Ningún resultado se dio por bueno sin validación empírica:
 
 ## 4. Aprendizajes Técnicos y Próximos Pasos
 
-* **Jakarta Bean Validation:** Se investigó la propagación automática de anotaciones (`@NotBlank`, `@NotNull`) en parámetros de *record* hacia los constructores generados, activándose mediante `@Valid` en los controllers sin validación manual.
+* **Jakarta Bean Validation:** las anotaciones en los componentes de un *record* (`@NotBlank`, `@NotNull`) se aplican a sus campos y accessors; Hibernate Validator valida esos campos y `@Valid` en el `@RequestBody` hace que Spring valide el objeto antes de entrar al controller, sin validación manual.
 * **Áreas de mejora identificadas:** Implementar validación cruzada a nivel de clase (`@AssertTrue` / `@Constraint`) para reglas multi-campo, y evaluar alternativas de menor contención al `synchronized` actual (como `ConcurrentHashMap.compute()`) para escenarios de alta concurrencia.
 
 ---
@@ -76,7 +75,7 @@ Ningún resultado se dio por bueno sin validación empírica:
    > **Restricciones:** Primero solo la lista de casos con el resultado esperado de cada uno; yo elijo cuáles implementar. Nada de dependencias nuevas. Cada prueba debe ser independiente.
    > **Formato:** Tabla con caso, entrada, resultado esperado y por qué importa.
 
-   Resultado: de la lista propuesta, los casos de ruta inexistente y método no permitido (`rutaInexistente_devuelve404_yMetodoNoPermitido_devuelve405`) ya están implementados; el resto queda como pendiente de evaluar.
+   Resultado: de la lista propuesta implementé el caso de ruta inexistente y método no permitido (`rutaInexistente_devuelve404_yMetodoNoPermitido_devuelve405`); el resto (por ejemplo, la matriz completa de transiciones y eventos con el mismo timestamp exacto) queda como siguiente paso.
 
 ## Datos sensibles
 
