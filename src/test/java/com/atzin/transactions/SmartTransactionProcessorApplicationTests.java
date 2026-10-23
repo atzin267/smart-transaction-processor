@@ -8,6 +8,5 @@ class SmartTransactionProcessorApplicationTests {
 
     @Test
     void contextLoads() {
-        // Verifica que la aplicación arranca sin errores
     }
 }
