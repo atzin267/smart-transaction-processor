@@ -167,4 +167,13 @@ class TransactionProcessingApiTest {
         mockMvc.perform(get("/transactions/TXN-API-9"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void rutaInexistente_devuelve404_yMetodoNoPermitido_devuelve405() throws Exception {
+        mockMvc.perform(get("/no-existe"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/events"))
+                .andExpect(status().isMethodNotAllowed());
+    }
 }

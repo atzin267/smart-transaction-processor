@@ -85,4 +85,20 @@ class TransactionServiceTest {
         assertThrows(InvalidTransitionException.class, () -> service.process(directoAProcessing));
         assertThat(service.findById("TXN-5")).isEmpty();
     }
+
+    @Test
+    void eventoViejoConTransicionYaSuperadaEsStaleNoConflicto() {
+        // CREATED 10:00 -> COMPLETED 10:05 y luego llega tarde PROCESSING de las 10:02.
+        // Es un evento fuera de orden legítimo: debe ser STALE, no 409.
+        service.process(new Event("EVT-10", "TXN-10", "STATUS_UPDATED", Status.CREATED,
+                Instant.parse("2026-10-21T10:00:00Z")));
+        service.process(new Event("EVT-11", "TXN-10", "STATUS_UPDATED", Status.COMPLETED,
+                Instant.parse("2026-10-21T10:05:00Z")));
+
+        ProcessResult result = service.process(new Event("EVT-12", "TXN-10", "STATUS_UPDATED",
+                Status.PROCESSING, Instant.parse("2026-10-21T10:02:00Z")));
+
+        assertThat(result).isEqualTo(ProcessResult.STALE);
+        assertThat(service.findById("TXN-10").orElseThrow().status()).isEqualTo(Status.COMPLETED);
+    }
 }

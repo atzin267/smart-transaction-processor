@@ -40,13 +40,15 @@ public class TransactionService {
             return ProcessResult.APPLIED;
         }
 
-        if (!ALLOWED_TRANSITIONS.get(current.status()).contains(event.status())) {
-            throw new InvalidTransitionException(event.transactionId(), current.status(), event.status());
-        }
-
+        // Primero el orden lógico: un evento más viejo que el último aplicado ya fue superado,
+        // así que no se compara contra la máquina de estados (su transición pudo ser válida en su momento).
         if (event.timestamp().isBefore(current.lastUpdated())) {
             processedEventIds.add(event.eventId());
             return ProcessResult.STALE;
+        }
+
+        if (!ALLOWED_TRANSITIONS.get(current.status()).contains(event.status())) {
+            throw new InvalidTransitionException(event.transactionId(), current.status(), event.status());
         }
 
         applyEvent(event);
